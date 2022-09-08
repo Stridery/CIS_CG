@@ -28,4 +28,14 @@ is done. However, to make sure the process ends, I set a variable c, c++ when a 
 color and end as well. Specially when the first ray hit nothing, return background color.
 
 ## Bounding box accelerating
-To implement this part, I finally chose to design a well-proportioned bounding box.
+### 1.data structure
+To implement this part, I finally chose to design a well-proportioned bounding box. First I created a box class(addressed in more detail later) and a node struct. 
+The node struct contains a pointer to a box and eight pointers to eight son nodes. 
+The boxes are in three levels, the mainBox covers everything in the scene, I divide it into 8 congruent rectangulars, and put them in a vector<Box> called "firstLay". 
+The boxes in "firstLay" are further divided into 8 congruent smaller boxes, and put them in a 2d vector<Box>, so there are overall 64 small bounding boxes that contain different objects. 
+In the same way, the mainNode has a pointer to the main box and eight pointer to eight son nodes(also in a vector<node> called "firstNodes"). Each son node has a pointer to a box in "firstLay". and eight pointers to eight grandson nodes(also in a 2d vector<Node>), which are all correspondent to 64 smallest bounding boxes.  
+
+On the whole, the tree structure is convenient in searching what a ray hit, I can search layer after layer, and save time from unnecessary searches. 
+But the reason why a put all the boxes and nodes in a same level in a vector is that its more flexible in initializing and checking, without naming every one of them.
+  More details are shown in the graph below.
+
