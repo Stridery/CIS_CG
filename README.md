@@ -29,7 +29,7 @@ color and end as well. Specially when the first ray hit nothing, return backgrou
 
 ## Bounding box accelerating
 ### 1.new class and struct
-I created a Box class and a Node struct. The Box class contains six xyz value of the coordinate of six surfaces. As the box is horizontal, I don't need specific coordinates of eight points. The Box class also has a vector for all the surface index intersect with it. The Node struct contains a pointer to a box and eight pointers for eight son nodes.
+I created a Box class and a Node struct. The Box class contains six xyz value of the coordinate of six surfaces. As the box is horizontal, I don't need specific coordinates of eight points. The Box class also has a vector<int> called "intersectList" for all the surface index intersect with it. The Node struct contains a pointer to a box and eight pointers for eight son nodes.
 
 ### 2.data structure
 The boxes are in three levels, the mainBox covers everything in the scene, I divide it into 8 congruent rectangulars, and put them in a vector<Box> called "firstLay". 
@@ -39,9 +39,11 @@ In the same way, the mainNode has a pointer to the main box and eight pointer to
 On the whole, the tree structure is convenient in searching what a ray hit, I can search layer after layer, and save time from unnecessary searches. 
 But the reason why a put all the boxes and nodes in a same level in a vector is that its more flexible in initializing and checking, without naming every one of them.
   
-  More details are shown in the graph below.  
+  More details are shown in the graph below. 
   
-### 2.more fuctions
+  Before I start tracing, Igo through all objects to locate the mainBox, and divide it layer after layer, save the smaller boxes in vectors and nodes, and complete the tree structure. Then I go through all objects to record them in intersectLists in every boxes they're in.
+  
+### 2.more functions
 #### (1)checkPosition
   This is the function for positioning the mainBox. I go through all surfaces to check the biggest and smallest xyz value, and let them be positions of the six surfaces of the mainBox.
 #### (2)seperate
@@ -51,6 +53,10 @@ But the reason why a put all the boxes and nodes in a same level in a vector is 
   Spere::boxIntersect() is designed to check if the center of the sphere is inside the range of the box  a radius wider in all six directions.
   Triangle::boxIntersect() is designed to biuld the smallest rectangular around the triangle with its biggest and smallest xyz values. And check if the two rectangulars intersect.
   TrianglePatch::boxIntersect() is the same way as Triangle::boxIntersect().
+  Note that all boxIntersect function are not absoletely precise. Some objects that do not intersect with a certain box but close to it may also be judged to be intersected. There is nothing wrong with it, as to precisely check if a triangle or sphere is intersect with a box is relatively complicated and unecessary. Having possibly multiple checks in one objects saves more time than to check whether it intersect with a box or not. All I have to do is to record all objects in potential boxes.
 #### (4)Box::Intersect
   This is the function to see if a ray hits a box.
   I simply let ray hit on the plane of six surfaces of the box(three sets of parallel planes), and get three sets of corresponding t values, as the graph demonstrates below. Here I simply ignore the situation when the ray is parallel to a set of planes as it is almost impossible. The biggest t value of three smallest xyz surfaces is supposed to be tmin, and the smallest t value of three biggest xyz surfaces is supposed to be tmax. If tmax does exceeds tmin, the ray hits the box. But considereing the starting point may be inside the box, I check if tmax is in the range of t0 and t1, if true, return true.
+
+### 3.Accelerating strategy
+  After data structure is biult. Whenever I need to go through everything to find out what a ray hits, I check if it hits the mainBox first. If it does, check the eight son boxes one by one, if the ray hits some of them, continue to check their sons. If the ray hits some boxes it the last layer, collect their "intersectList" in a new vector. Then I go through the new vector full of potential hitten objects, instead going through every object.
