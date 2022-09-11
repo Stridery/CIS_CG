@@ -1,4 +1,4 @@
-# Assignment2
+# What I have implemented
 ## Step1-intersection function
 ### 1.Triangle intersection
 In this function I used my own way to detect the intersection. 
