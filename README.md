@@ -55,6 +55,9 @@ But the reason why a put all the boxes and nodes in a same level in a vector is 
   
   Before I start tracing, Igo through all objects to locate the mainBox, and divide it layer after layer, save the smaller boxes in vectors and nodes, and complete the tree structure. Then I go through all objects to record them in intersectLists in every boxes they're in.
   
+  The folowing graph demonstrates the datastructure.
+  ![data structure](POWERPNT_FmIB4FHE15.png)
+  
 ### 1-5-2.More functions
 #### (1)checkPosition
   This is the function for positioning the mainBox. I go through all surfaces to check the biggest and smallest xyz value, and let them be positions of the six surfaces of the mainBox.
