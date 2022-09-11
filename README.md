@@ -50,9 +50,13 @@ But the reason why a put all the boxes and nodes in a same level in a vector is 
   This is the fuction to divide a box in a node and initial them into eight son boxes in eight son nodes, and initial eight son pointers in father node.
 #### (3)boxIntersect
   This is a function checking if an object is intersect with a box.
+  
   Spere::boxIntersect() is designed to check if the center of the sphere is inside the range of the box  a radius wider in all six directions.
+  
   Triangle::boxIntersect() is designed to biuld the smallest rectangular around the triangle with its biggest and smallest xyz values. And check if the two rectangulars intersect.
+  
   TrianglePatch::boxIntersect() is the same way as Triangle::boxIntersect().
+  
   Note that all boxIntersect function are not absoletely precise. Some objects that do not intersect with a certain box but close to it may also be judged to be intersected. There is nothing wrong with it, as to precisely check if a triangle or sphere is intersect with a box is relatively complicated and unecessary. Having possibly multiple checks in one objects saves more time than to check whether it intersect with a box or not. All I have to do is to record all objects in potential boxes.
 #### (4)Box::Intersect
   This is the function to see if a ray hits a box.
