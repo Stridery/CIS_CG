@@ -31,6 +31,9 @@ color and end as well. Specially when the first ray hit nothing, return backgrou
 ### 1.New class and struct
 I created a Box class and a Node struct. The Box class contains six xyz value of the coordinate of six surfaces. As the box is horizontal, I don't need specific coordinates of eight points. The Box class also has a vector<int> called "intersectList" for all the surface index intersect with it. The Node struct contains a pointer to a box and eight pointers for eight son nodes.
 
+![Node structure](https://user-images.githubusercontent.com/92585107/189517257-d8b4c826-6fd5-45e7-8e61-8ed8e886bab1.png)
+![Box class](devenv_fwljTxnBeP.png)
+
 ### 2.Data structure
 The boxes are in three levels, the mainBox covers everything in the scene, I divide it into 8 congruent rectangulars, and put them in a vector<Box> called "firstLay". 
 The boxes in "firstLay" are further divided into 8 congruent smaller boxes, and put them in a 2d vector<Box>, so there are overall 64 small bounding boxes that contain different objects. 
