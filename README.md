@@ -4,10 +4,12 @@
 In this function I used my own way to detect the intersection. 
 First I check if the dirction of the ray is parallel with the triangle(perpendicular with the normal), if so, return false. 
 Second, if not parallel, that means the ray is definitely hit somewhere on the plane where the triangle is, we call the point p. In this case, vector ap/bp/cp should be perpendicular to the normal, then Iget the t value. 
-Then, I examine if p is inside the triangle. If it is, vector ap and ac are at the same side of ab, so cross(ap,ab)*cross(ac,ab)>0, and so on. After 3 checkings, if all true, then set the hitrecord and return true.
+Then, I examine if p is inside the triangle. If it is, vector ap and ac are at the same side of ab, so cross(ap,ab)*cross(ac,ab)>0. Similarly, vector ap and ab is at the same side of ac, vector bp and bc is at the same side of ba. After 3 checkings, if all true, then set the hitrecord and return true(demonstrated in the graph below).
+
+![checking if a point is inside](msedge_uTsyzUrmD2.png)
 
 ### 2.Sphere intersection
-If p is on the sphere, length of cp is definitely rad. So I check if the quadratic equation has answers, or has only one answer(I assume the tangent occasion as miss). If it has 2 answers, I choose the smaller t, as it is in the front. 
+If p is on the sphere, length of cp is definitely rad. If the distance of a point on the ray and the center is radius, it's an intersect. So I check if the quadratic equation has answers, or has only one answer(I assume the tangent occasion as miss). If it has 2 answers, I choose the smaller t, as it is in the front. 
 After checking if it is valid, I set the hitrecord and return true.
 
 ### 3.Check what the ray hits
@@ -31,8 +33,8 @@ color and end as well. Specially when the first ray hit nothing, return backgrou
 ### 1.New class and struct
 I created a Box class and a Node struct. The Box class contains six xyz value of the coordinate of six surfaces. As the box is horizontal, I don't need specific coordinates of eight points. The Box class also has a vector<int> called "intersectList" for all the surface index intersect with it. The Node struct contains a pointer to a box and eight pointers for eight son nodes.
 
-![Node structure](https://user-images.githubusercontent.com/92585107/189517257-d8b4c826-6fd5-45e7-8e61-8ed8e886bab1.png)
-![Box class](devenv_fwljTxnBeP.png)
+![Node structure](devenv_34jyUZODzT.png)
+![Box class](devenv_p3qG7YH4Ga.png)
 
 ### 2.Data structure
 The boxes are in three levels, the mainBox covers everything in the scene, I divide it into 8 congruent rectangulars, and put them in a vector<Box> called "firstLay". 
@@ -54,9 +56,13 @@ But the reason why a put all the boxes and nodes in a same level in a vector is 
 #### (3)boxIntersect
   This is a function checking if an object is intersect with a box.
   
-  Spere::boxIntersect() is designed to check if the center of the sphere is inside the range of the box  a radius wider in all six directions.
+  Spere::boxIntersect() is designed to check if the center of the sphere is inside the range of the box a radius wider in all six directions.
+  
+![sphere boxIntersect](msedge_WjOxX6GqlN.png)
   
   Triangle::boxIntersect() is designed to biuld the smallest rectangular around the triangle with its biggest and smallest xyz values. And check if the two rectangulars intersect.
+  
+![triangle intersect](msedge_Tc4GmXcdT1.png)
   
   TrianglePatch::boxIntersect() is the same way as Triangle::boxIntersect().
   
@@ -65,6 +71,9 @@ But the reason why a put all the boxes and nodes in a same level in a vector is 
   This is the function to see if a ray hits a box.
   I simply let ray hit on the plane of six surfaces of the box(three sets of parallel planes), and get three sets of corresponding t values, as the graph demonstrates below. Here I simply ignore the situation when the ray is parallel to a set of planes as it is almost impossible. The biggest t value of three smallest xyz surfaces is supposed to be tmin, and the smallest t value of three biggest xyz surfaces is supposed to be tmax. If tmax does exceeds tmin, the ray hits the box. But considereing the starting point may be inside the box, I check if tmax is in the range of t0 and t1, if true, return true.
 
+![get txmax and txmin](msedge_Ge3kiHO2vA.png)
+![get tymax and tymin](msedge_Q17sbtysV3.png)
+![get tzmax and tzmin](msedge_ztg0SThb9H.png)
 ### 3.Accelerating strategy
   After data structure is biult. Whenever I need to go through everything to find out what a ray hits, I check if it hits the mainBox first. If it does, check the eight son boxes one by one, if the ray hits some of them, continue to check their sons. If the ray hits some boxes it the last layer, collect their "intersectList" in a new vector. Then I go through the new vector full of potential hitten objects, instead going through every object.
 
