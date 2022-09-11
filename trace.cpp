@@ -4,12 +4,21 @@
 #include <sstream>
 #include <fstream>
 #include <iostream>
+#include "time.h"
 //#include <getopt.h>
 #ifdef __APPLE__
 #define MAX std::numeric_limits<double>::max()
 #else
 #define MAX DBL_MAX
+#define MIN DBL_MIN
 #endif
+
+static Node mainNode;
+static Box mainBox(MIN, MAX, MIN, MAX, MIN, MAX);
+static std::vector<Node> firstNodes(8);
+static std::vector<std::vector<Node>> secondNodes(8, std::vector<Node>(8));
+static std::vector<Box> firstLay(8);
+static std::vector<std::vector<Box>> secondLay(8, std::vector<Box>(8));
 
 // return the determinant of the matrix with columns a, b, c.
 double det(const SlVector3& a, const SlVector3& b, const SlVector3& c) {
@@ -20,10 +29,14 @@ double det(const SlVector3& a, const SlVector3& b, const SlVector3& c) {
 
 inline double sqr(double x) { return x * x; }
 
+bool Surface::boxIntersect(Box b) { return false; }
+void Surface::checkPosition(Box& b) {}
+
 bool Triangle::intersect(const Ray& r, double t0, double t1, HitRecord& hr) const {
 
     // Step 1 Ray-triangle test***************************************************************************
-    SlVector3 nor = cross(this->a - this->b, this->a - this->c);
+    SlVector3 nor = cross(this->b - this->a, this->c - this->a);
+    //SlVector3 nor = cross(this->c - this->a, this->b - this->a);
     normalize(nor);
     double x = dot(r.d, nor);
     if (x != 0) {
@@ -34,11 +47,11 @@ bool Triangle::intersect(const Ray& r, double t0, double t1, HitRecord& hr) cons
         double cross3 = dot(cross(this->c - this->b, p - this->b), cross(this->c - this->b, this->a - this->b));
         if (dot(cross(this->b - this->a, p - this->a), cross(this->b - this->a, this->c - this->a)) > 0 && dot(cross(this->c - this->a, p - this->a), cross(this->c - this->a, this->b - this->a)) > 0 && dot(cross(this->c - this->b, p - this->b), cross(this->c - this->b, this->a - this->b)) > 0) {
             if (t > t0 && t < t1) {
-                //����HitRecord
+                //设置HitRecord
                 hr.t = t;
-                //hr.alpha = 1 - beta - gemma;
                 //hr.beta = beta;
                 //hr.gamma = gemma;
+                //hr.alpha = 1 - beta - gemma;
                 hr.p = p;
                 hr.n = nor;
                 hr.e = 0.0 - r.d;
@@ -47,6 +60,28 @@ bool Triangle::intersect(const Ray& r, double t0, double t1, HitRecord& hr) cons
         }
     }
     return false;
+}
+
+bool Triangle::boxIntersect(Box b) {
+    double maxx = std::max(this->a[0], std::max(this->b[0], this->c[0]));
+    double minx = std::min(this->a[0], std::min(this->b[0], this->c[0]));
+    double maxy = std::max(this->a[1], std::max(this->b[1], this->c[1]));
+    double miny = std::min(this->a[1], std::min(this->b[1], this->c[1]));
+    double maxz = std::max(this->a[2], std::max(this->b[2], this->c[2]));
+    double minz = std::min(this->a[2], std::min(this->b[2], this->c[2]));
+    if (maxx >= b.sx && minx <= b.bx && maxy >= b.sy && miny <= b.by && maxz >= b.sz && minz <= b.bz) {
+        return true;
+    }
+    return false;
+}
+
+void Triangle::checkPosition(Box& b) {
+    b.sx = std::min(std::min(this->a[0], std::min(this->b[0], this->c[0])), b.sx);
+    b.bx = std::max(std::max(this->a[0], std::max(this->b[0], this->c[0])), b.bx);
+    b.sy = std::min(std::min(this->a[1], std::min(this->b[1], this->c[1])), b.sy);
+    b.by = std::max(std::max(this->a[1], std::max(this->b[1], this->c[1])), b.by);
+    b.sz = std::min(std::min(this->a[2], std::min(this->b[2], this->c[2])), b.sz);
+    b.bz = std::max(std::max(this->a[2], std::max(this->b[2], this->c[2])), b.bz);
 }
 
 bool TrianglePatch::intersect(const Ray& r, double t0, double t1, HitRecord& hr) const {
@@ -59,18 +94,34 @@ bool TrianglePatch::intersect(const Ray& r, double t0, double t1, HitRecord& hr)
     return false;
 }
 
+/*bool TrianglePatch::boxIntersect(Box b) {
+    return Triangle::boxIntersect(b);
+}
+
+void TrianglePatch::checkPosition(Box& b) {
+    Triangle::checkPosition(b);
+}*/
 
 bool Sphere::intersect(const Ray& r, double t0, double t1, HitRecord& hr) const {
 
     // Step 1 Sphere-triangle test***************************************************************************
-    double t;
+    double tmin, tmax;
     double flag = (dot(r.d, r.e) - dot(r.d, this->c)) * (dot(r.d, r.e) - dot(r.d, this->c)) - dot(r.d, r.d) * (dot((r.e - this->c), (r.e - this->c)) - this->rad * this->rad);
     if (flag > 0) {
-        t = -(sqrt(flag) + 2 * dot(r.d, r.e - this->c) / (2 * dot(r.d, r.d)));
-        if (t > t0 && t < t1) {
-            //����HitRecord
-            hr.t = t;
-            hr.p = r.e + t * r.d;
+        tmin = -(sqrt(flag) + 2 * dot(r.d, r.e - this->c) / (2 * dot(r.d, r.d)));
+        tmax = (sqrt(flag) - 2 * dot(r.d, r.e - this->c) / (2 * dot(r.d, r.d)));
+        if (tmin > t0 && tmin < t1) {
+            //设置HitRecord
+            hr.t = tmin;
+            hr.p = r.e + tmin * r.d;
+            hr.n = hr.p - this->c;
+            hr.e = 0.0 - r.d;
+            normalize(hr.n);
+            return true;
+        }
+        else if (tmin < 0.000001 && tmax > t0 && tmax < t1) {
+            hr.t = tmax;
+            hr.p = r.e + tmax * r.d;
             hr.n = hr.p - this->c;
             hr.e = 0.0 - r.d;
             normalize(hr.n);
@@ -80,8 +131,88 @@ bool Sphere::intersect(const Ray& r, double t0, double t1, HitRecord& hr) const 
     return false;
 }
 
+SlVector3 HitRecord::getRefractionD() const {
+    double idotn = dot(0.0 - this->e, this->n);
+    double k, a;
+    double ri = this->f.ior;
+    if (idotn) {
+        k = 1.0 - ri * ri * (1.0 - idotn * idotn);
+        if (k < 0.0) {
+            return {0.0, 0.0, 0.0};
+        }
+        a = ri * idotn - sqrt(k);
+    }
+    else {
+        ri = 1.0 / this->f.ior;
+        k = 1.0 - ri * ri * (1.0 - idotn * idotn);
+        a = ri * idotn + sqrt(k);
+    }
+    return (0.0 - this->e) * ri - this->n * a;
+}
+
+bool Sphere::boxIntersect(Box b) {
+    if (this->c[0] <= (b.bx + this->rad) && this->c[0] >= (b.sx - this->rad) && this->c[1] <= (b.by + this->rad) && this->c[1] >= (b.sy - this->rad) && this->c[2] <= (b.bz + this->rad) && this->c[2] >= (b.sz - this->rad)) {
+        return true;
+    }
+    return false;
+}
+
+void Sphere::checkPosition(Box& b) {
+    b.sx = std::min(this->c[0] - this->rad, b.sx);
+    b.bx = std::max(this->c[0] + this->rad, b.bx);
+    b.sy = std::min(this->c[1] - this->rad, b.sy);
+    b.by = std::max(this->c[1] + this->rad, b.by);
+    b.sz = std::min(this->c[2] - this->rad, b.sz);
+    b.bz = std::max(this->c[2] + this->rad, b.bz);
+}
 
 
+
+bool Box::intersect(const Ray& r, double t0, double t1) const {
+    //std::cout << "intersect" << std::endl;
+    double ta, tb;
+    double tsx, tbx, tsy, tby, tsz, tbz;
+    ta = (this->sx - r.e[0]) / r.d[0];
+    tb = (this->bx - r.e[0]) / r.d[0];
+    tsx = std::min(ta, tb);
+    tbx = std::max(ta, tb);
+    ta = (this->sy - r.e[1]) / r.d[1];
+    tb = (this->by - r.e[1]) / r.d[1];
+    tsy = std::min(ta, tb);
+    tby = std::max(ta, tb);
+    ta = (this->sz - r.e[2]) / r.d[2];
+    tb = (this->bz - r.e[2]) / r.d[2];
+    tsz = std::min(ta, tb);
+    tbz = std::max(ta, tb);
+    double tmin = std::max(tsx, std::max(tsy, tsz));
+    double tmax = std::min(tbx, std::min(tby, tbz));
+    return tmin < tmax && tmax > t0 && tmax < t1;
+}
+
+void Box::seperate(Node& node, Node& son000, Node& son001, Node& son010, Node& son011, Node& son100, Node& son101, Node& son110, Node& son111) { //已存在内容，只赋值
+    node.self = this;
+    double mdx, mdy, mdz;
+    mdx = (node.self->bx + node.self->sx) / 2;
+    mdy = (node.self->by + node.self->sy) / 2;
+    mdz = (node.self->bz + node.self->sz) / 2;
+    son000.self->sx = son010.self->sx = son100.self->sx = son110.self->sx = node.self->sx;
+    son000.self->sy = son001.self->sy = son100.self->sy = son101.self->sy = node.self->sy;
+    son000.self->sz = son001.self->sz = son010.self->sz = son011.self->sz = node.self->sz;
+    son001.self->sx = son011.self->sx = son101.self->sx = son111.self->sx = son000.self->bx = son010.self->bx = son100.self->bx = son110.self->bx = mdx;
+    son010.self->sy = son011.self->sy = son110.self->sy = son111.self->sy = son000.self->by = son001.self->by = son100.self->by = son101.self->by = mdy;
+    son100.self->sz = son101.self->sz = son110.self->sz = son111.self->sz = son000.self->bz = son001.self->bz = son010.self->bz = son011.self->bz = mdz;
+    son001.self->bx = son011.self->bx = son101.self->bx = son111.self->bx = node.self->bx;
+    son010.self->by = son011.self->by = son110.self->by = son111.self->by = node.self->by;
+    son100.self->bz = son101.self->bz = son110.self->bz = son111.self->bz = node.self->bz;
+    node.b000 = &son000;
+    node.b001 = &son001;
+    node.b010 = &son010;
+    node.b011 = &son011;
+    node.b100 = &son100;
+    node.b101 = &son101;
+    node.b110 = &son110;
+    node.b111 = &son111;
+}
 
 Tracer::Tracer(const std::string& fname) {
     std::ifstream in(fname.c_str(), std::ios_base::in);
@@ -224,57 +355,119 @@ Tracer::~Tracer() {
     for (unsigned int i = 0; i < surfaces.size(); i++) delete surfaces[i].first;
 }
 
+void traverse(Ray r, Node n, double t0, double t1, std::vector<int>& v) {
+    if (n.b000 == NULL) {
+        if (n.self->intersect(r, t0, t1)) {
+            //std::cout << "hitbox" << std::endl;
+            v.insert(v.end(), n.self->intersectList.begin(), n.self->intersectList.end());
+        }
+    }
+    else {
+        if (n.self->intersect(r, t0, t1)) {
+            traverse(r, *n.b000, t0, t1, v);
+            traverse(r, *n.b001, t0, t1, v);
+            traverse(r, *n.b010, t0, t1, v);
+            traverse(r, *n.b011, t0, t1, v);
+            traverse(r, *n.b100, t0, t1, v);
+            traverse(r, *n.b101, t0, t1, v);
+            traverse(r, *n.b110, t0, t1, v);
+            traverse(r, *n.b111, t0, t1, v);
+
+        }
+    }
+}
+
 
 SlVector3 Tracer::shade(const HitRecord& hr, double c) const {
     if (color) return hr.f.color;
 
     SlVector3 color(0.0);
-    SlVector3 newColor(0.0);
     HitRecord dummy;
+    SlVector3 n;
+    bool inside;
+    if (dot(hr.e, hr.n) < 0) {
+        n = 0.0 - hr.n;
+        inside = 1;
+    }
+    else {
+        n = hr.n;
+        inside = 0;
+    }
 
     for (unsigned int i = 0; i < lights.size(); i++) {
         const Light& light = lights[i];
         bool shadow = false;
-
-        // Step 3 Check for shadows here
-        for (int j = 0; j < this->lights.size(); j++) {
-            SlVector3 dir = this->lights[j].p - hr.p;
-            normalize(dir);
-            Ray r = Ray(hr.p, dir);
-            for (int a = 0; a < this->surfaces.size(); a++) {
-                shadow = this->surfaces[a].first->intersect(r, shadowbias, mag(lights[i].p - hr.p), dummy);
-                if (shadow) {
-                    break;
-                }
+    // Step 3 Check for shadows here
+        SlVector3 dir = light.p - hr.p;
+        normalize(dir);
+        Ray r = Ray(hr.p, dir);
+        std::vector<int> hitList;
+        traverse(r, mainNode, shadowbias, mag(light.p - hr.p), hitList);
+        for (unsigned int a = 0; a < hitList.size(); a++) {
+            shadow = this->surfaces[hitList[a]].first->intersect(r, shadowbias, mag(light.p - hr.p), dummy);
+            if (shadow) {
+                break;
             }
+        }
 
-            if (!shadow) {
+        if (!shadow) {
 
-                // Step 2 do shading here
-                double spetacular = 1.0;
-                double diffuse = 0.0;
-                SlVector3 r = getSym(hr.n, dir);
+            // Step 2 do shading here
+            double spetacular = 1.0;
+            double diffuse = 0.0;
+            SlVector3 r = getSym(n, dir);
 
-                diffuse = (dot(dir, hr.n) > 0.0) ? dot(dir, hr.n) : 0.0;
-                spetacular = (dot(r, hr.e) > 0.0) ? pow(dot(r, hr.e), hr.f.shine) : 0.0;
-                //Original Phong BRDF
-                color += hr.f.kd * hr.f.color * light.c * diffuse + hr.f.ks * hr.f.color * light.c * spetacular;
-            }
+            diffuse = (dot(dir, n) > 0.0) ? dot(dir, n) : 0.0;
+            spetacular = (dot(r, hr.e) > 0.0) ? pow(dot(r, hr.e), hr.f.shine) : 0.0;
+            //Original Phong BRDF
+            color += hr.f.kd * hr.f.color * light.c * diffuse + hr.f.ks * hr.f.color * light.c * spetacular;
         }
 
     }
 
-
-    // Step 4 Add code for computing reflection color here
-    // Step 5 Add code for computing refraction color here
-    SlVector3 nextd = getSym(hr.n, hr.e);
-    normalize(nextd);
-    Ray nextr = Ray(hr.p, nextd);
     c++;
-    SlVector3 reflection = trace(nextr, shadowbias, MAX, c);
-    color += reflection * hr.f.ks * hr.f.color * dot(nextr.d, hr.n) + reflection * hr.f.ks * hr.f.color;
-    return newColor;
+    double r0 = (1 - hr.f.ior) / (1 + hr.f.ior);
+    double R0 = r0 * r0;
+    double ar = dot(hr.e, n);
+    if (ar > 0) {
+        ar = 1 - ar;
+    }
+    else {
+        ar = 1 + ar;
+    }
+    double R = R0 + (1 - R0) * ar * ar * ar * ar * ar;
+    SlVector3 reflection = { 0.0, 0.0, 0.0 };
+    SlVector3 refraction = { 0.0, 0.0, 0.0 };
+    SlVector3 reflectColor = { 0.0, 0.0, 0.0 };
+    SlVector3 refractColor = { 0.0, 0.0, 0.0 };
+    // Step 4 Add code for computing reflection color here
+    if (R != 0) {
+        SlVector3 nextReflectionD = getSym(n, hr.e);
+        normalize(nextReflectionD);
+        Ray nextReflectR = Ray(hr.p, nextReflectionD);
+        reflection = trace(nextReflectR, shadowbias, MAX, c);
+        reflectColor = reflection * hr.f.kd * hr.f.color * dot(nextReflectR.d, n) + reflection * hr.f.ks * hr.f.color;
+    }
+    
+
+    // Step 5 Add code for computing refraction color here
+    /*if (c < 2 || !inside) {
+        if (R != 1) {
+            SlVector3 nextRefractD = hr.getRefractionD();
+            if (mag(nextRefractD) != 0) {
+                Ray nextRefractR = Ray(hr.p, nextRefractD);
+                refraction = trace(nextRefractR, shadowbias, MAX, c);
+                refractColor = refraction * hr.f.color;
+            }
+        }
+    }*/
+    
+    //color += R * reflectColor + (1 - R) * refractColor;
+    color += reflectColor;
+    return color;
 }
+
+
 
 SlVector3 Tracer::trace(const Ray& r, double t0, double t1, double c) const {
     if (c == this->maxraydepth) {
@@ -288,7 +481,21 @@ SlVector3 Tracer::trace(const Ray& r, double t0, double t1, double c) const {
     bool hit = false;
 
     // Step 1 See what a ray hits  
-    for (int i = 0; i < this->surfaces.size(); i++) {
+
+    std::vector<int> hitList;
+    traverse(r, mainNode, t0, t1, hitList);
+    //std::cout << hitList.size() << " " << "Objects" << std::endl;
+    for (unsigned int i = 0; i < hitList.size(); i++) {
+        //std::cout << hitList[i] << " ";
+        if (this->surfaces[hitList[i]].first->intersect(r, t0, t1, tempHR)) {
+            hit = true;
+            if (tempHR.t < hr.t) {
+                hr = tempHR;
+                hr.f = this->surfaces[hitList[i]].second;
+            }
+        }
+    }
+    /*for (unsigned int i = 0; i < this->surfaces.size(); i++) {
         if (this->surfaces[i].first->intersect(r, t0, t1, tempHR)) {
             hit = true;
             if (tempHR.t < hr.t) {
@@ -296,7 +503,7 @@ SlVector3 Tracer::trace(const Ray& r, double t0, double t1, double c) const {
                 hr.f = this->surfaces[i].second;
             }
         }
-    }
+    }*/
 
     if (hit) {
         selfColor += shade(hr, c);
@@ -326,9 +533,45 @@ void Tracer::traceImage() {
 
     SlVector3* pixel = im;
 
+
+    //accelerate process
+    for (unsigned int x = 0; x < this->surfaces.size(); x++) {
+        this->surfaces[x].first->checkPosition(mainBox);
+    }
+    for (int x = 0; x < 8; x++) {
+        Box b(0,0,0,0,0,0);
+        firstLay[x] = b;
+        Node n;
+        n.self = &firstLay[x];
+        firstNodes[x] = n;
+    }
+    mainBox.seperate(mainNode, firstNodes[0], firstNodes[1], firstNodes[2], firstNodes[3], firstNodes[4], firstNodes[5], firstNodes[6], firstNodes[7]); //第一层赋好了
+
+   
+    for (int x = 0; x < 8; x++) {
+        for (int y = 0; y < 8; y++) {
+            Box b(0, 0, 0, 0, 0, 0);
+            secondLay[x][y] = b;
+            Node n;
+            n.self = &secondLay[x][y];
+            secondNodes[x][y] = n;
+        }
+        firstLay[x].seperate(firstNodes[x], secondNodes[x][0], secondNodes[x][1], secondNodes[x][2], secondNodes[x][3], secondNodes[x][4], secondNodes[x][5], secondNodes[x][6], secondNodes[x][7]);
+        for (int y = 0; y < 8; y++) {
+            for (int z = 0; z < surfaces.size(); z++) {
+                if (this->surfaces[z].first->boxIntersect(secondLay[x][y])) {
+                    secondLay[x][y].intersectList.push_back(z);
+                }
+            }
+            
+        }
+    }
+
     for (unsigned int j = 0; j < res[1]; j++) {
         std::cout << j << std::endl;
         for (unsigned int i = 0; i < res[0]; i++, pixel++) {
+            //std::cout << i << std::endl;
+
             SlVector3 result(0.0, 0.0, 0.0);
 
             for (int k = 0; k < samples; k++) {
@@ -345,7 +588,8 @@ void Tracer::traceImage() {
 
                 result += trace(r, hither, MAX, 0.0);
             }
-            (*pixel) = result / samples * (result + 1);
+            //std::cout << result[0] << " " << result[1] << " " << result[2] << std::endl;
+            (*pixel) = result / (samples * (result + 0.3));
         }
     }
 }
@@ -372,6 +616,8 @@ void Tracer::writeImage(const std::string& fname) {
 
 
 int main(int argc, char* argv[]) {
+    clock_t start_time, end_time;
+    start_time = clock();   //获取开始执行时间
     //int c;
     double aperture = 0.0;
     int samples = 1;
@@ -402,11 +648,15 @@ int main(int argc, char* argv[]) {
         exit(0);
     }*/
 
-    Tracer tracer("C:\\assignment-04\\InputFiles\\rings.nnf");
+    Tracer tracer("D:\\Coding Relative\\assignment-04\\InputFiles\\refraction test.nnf");
     tracer.aperture = aperture;
     tracer.samples = samples;
     tracer.color = color;
     tracer.maxraydepth = maxraydepth;
     tracer.traceImage();
-    tracer.writeImage("C:\\assignment-04\\InputFiles\\rings.ppm");
+    tracer.writeImage("D:\\Coding Relative\\assignment-04\\InputFiles\\refraction test.ppm");
+    end_time = clock();     //获取结束时间
+    double Times = (double)(end_time - start_time) / CLOCKS_PER_SEC;
+    printf("%f seconds\n", Times);
 };
+
