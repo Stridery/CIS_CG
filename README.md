@@ -85,7 +85,7 @@ But the reason why a put all the boxes and nodes in a same level in a vector is 
 ### 1-5-3.Accelerating strategy
   After data structure is biult. Whenever I need to go through everything to find out what a ray hits, I check if it hits the mainBox first. If it does, check the eight son boxes one by one, if the ray hits some of them, continue to check their sons. If the ray hits some boxes it the last layer, collect their "intersectList" in a new vector. Then I go through the new vector full of potential hitten objects, instead going through every object.
   
-  From the folloing picture, when calculating pixel(250,200), the ray hit six small boxes, and stored 3251 objects to its potential intersect list, rather than the original over 8000 objets.
+  From the folloing picture, when calculating pixel(250,200), the ray hit six small boxes, and stored 3251 objects to its potential intersect list, rather than the original over 8000 objects.
 ![accelerate example1](VsDebugConsole_eEOrq4TMDo.png)
 ![accelerate example1](VsDebugConsole_uAv4iBRI7s.png)
   
